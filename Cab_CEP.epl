@@ -1,0 +1,28 @@
+//create the 3 schemas one for pickup and dropoff with the parameters required
+//the 3rd schema is for route which is a complex schema which uses drop off and pickup to define its output
+create schema 
+Pickup(taxiId int, pickupLocation int);
+create schema 
+Dropoff(taxiId int, dropoffLocation int, amount int);
+create schema 
+Route(pickupLocation int, dropoffLocation int, amount int);
+//here route selects its data and parameters using the other two schemas as inputs
+//a range is created as a filter from the pattern to only include the route if the time between pickup
+//and drop off is less than 40 minutes
+insert into Route 
+select 
+pick.pickupLocation as pickupLocation, 
+drop.dropoffLocation as dropoffLocation, 
+drop.amount as amount
+from pattern
+[every pick=Pickup ->(drop=Dropoff(taxiId = pick.taxiId)
+where timer:within(40 min))];
+//this selects the data for the output and adds the amount with pickup an dropoff locations
+select pickupLocation, dropoffLocation, sum(amount) as sum
+from Route
+group by pickupLocation, dropoffLocation
+//the output of every case available is chosen and ordered in ascending order
+//a limit is put in to select the top 10
+output all every 1 events
+order by sum asc
+limit 10;
